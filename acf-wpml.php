@@ -32,30 +32,54 @@ class acf_wpml {
 	 **/
 	function acf_lang_update_value($value, $post_id, $field){
 
-		global $sitepress;
+		global $sitepress, $post;
 		if(!$sitepress)
 			return $value;
 
 		if($field['translateable'])
 			return $value;
 
-		global $post;
 
-		$trid 			= $sitepress->get_element_trid($post->ID, 'post_' . $post->post_type);
-		$translations 	= $sitepress->get_element_translations($trid, 'post_' . $post->post_type);
-		unset($translations[$sitepress->get_current_language()]);
+		if($post_id == 'options' or $post_id == 'options_'.$sitepress->get_current_language()){
 
-		if($translations){
-			$i = 0;
-			foreach($translations as $translation){
-	
+			$languages = $this->get_languages();
+			unset($langs[$sitepress->get_current_language()]);
+
+			foreach($languages as $lang){
+
+				$options_id = 'options';
+				if($lang != $sitepress->get_default_language()){
+					$options_id .= '_'.$lang;
+				}
+
 				remove_filter('acf/update_value', array($this, 'acf_lang_update_value'), 50, 3);
-				$this->switch_to_language($translation->language_code);
-				acf_update_value($value, $translation->element_id, $field);
-				$this->switch_language_back();
+				$this->switch_to_language($lang);
+				acf_update_value($value, $options_id, $field);
+				$this->switch_language_back();				
 				add_filter('acf/update_value', array($this, 'acf_lang_update_value'), 50, 3);
 
 			}
+
+		}
+		else{
+			
+			$trid 			= $sitepress->get_element_trid($post->ID, 'post_' . $post->post_type);
+			$translations 	= $sitepress->get_element_translations($trid, 'post_' . $post->post_type);
+			unset($translations[$sitepress->get_current_language()]);
+
+			if($translations){
+				$i = 0;
+				foreach($translations as $translation){
+		
+					remove_filter('acf/update_value', array($this, 'acf_lang_update_value'), 50, 3);
+					$this->switch_to_language($translation->language_code);
+					acf_update_value($value, $translation->element_id, $field);
+					$this->switch_language_back();
+					add_filter('acf/update_value', array($this, 'acf_lang_update_value'), 50, 3);
+
+				}
+			}
+
 		}
 
 		return $value;
@@ -77,6 +101,27 @@ class acf_wpml {
 			'name'			=> 'translateable'
 		));
 
+	}
+
+
+	/**
+	 * undocumented function
+	 *
+	 * @return void
+	 **/
+	function get_languages($keys_only = true){
+		if($langs = icl_get_languages()){
+
+			/* Keys only? */
+			if($keys_only)
+				$langs = array_keys($langs);
+		}
+		else{
+			/* No langs. Make an empty array tp return */
+			$langs = array();
+		}
+
+		return $langs;	
 	}
 
 
