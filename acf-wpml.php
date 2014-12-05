@@ -22,6 +22,30 @@ class acf_wpml {
 		/* Per field language support for ACF */
 		add_filter('acf/render_field_settings', array($this, 'acf_lang_render_field_settings'), 10);
 		add_filter('acf/update_value', array($this, 'acf_lang_update_value'), 50, 3);
+
+		add_filter('acf/load_field', array($this, 'allow_edits_in_default_language_only'), 100, 1);
+	}
+
+
+	/**
+	 * TO DO: Documentation
+	 *
+	 * @return void
+	 **/
+	function allow_edits_in_default_language_only($field){
+		
+		global $sitepress;
+		if(!$sitepress)
+			return $field;
+
+		$field_name = $field['_name'];
+
+		if(is_admin() and is_array($field['edit_in_languages']) and !in_array($sitepress->get_current_language(), $field['edit_in_languages'])){
+			unset($field['instructions']);
+			$field['type'] 		= 'message';
+			$field['message'] 	= 'This field is unavailable for editing in this language.';
+		}
+		return $field;
 	}
 
 
@@ -94,11 +118,32 @@ class acf_wpml {
 	 **/
 	function acf_lang_render_field_settings($field){
 
+		global $sitepress;
+		$langs = icl_get_languages();
+
+		foreach ($langs as &$lang) {
+			$lang_choices[$lang['language_code']] = $lang['translated_name'];
+		}
+		$lang_keys = array_keys($lang_choices);
+
+		if(!isset($field['edit_in_languages']))
+			$field['edit_in_languages'] = $lang_keys;
+
 		acf_render_field_setting( $field, array(
 			'label'			=> 'Translateable?',
 			'instructions'	=> 'Make this field translateable by WPML',
 			'type'			=> 'true_false',
 			'name'			=> 'translateable'
+		));
+
+		acf_render_field_setting( $field, array(
+			'label'			=> 'Edit in languages',
+			'instructions'	=> 'Removing a language from this list will prevent editing when on that language.',
+			'type'			=> 'checkbox',
+			'layout'		=> 'vertical',
+			'choices'		=> $lang_choices,
+			'default' 		=> $lang_keys,
+			'name'			=> 'edit_in_languages'
 		));
 
 	}
