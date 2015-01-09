@@ -21,10 +21,17 @@ class acf_wpml {
 	function hooks(){		
 		/* Per field language support for ACF */
 		add_filter('acf/render_field_settings', array($this, 'acf_lang_render_field_settings'), 10);
+		
 		add_filter('acf/update_value', array($this, 'acf_lang_update_value'), 50, 3);
 		add_filter('acf/load_value', array($this, 'acf_lang_load_value'), 50, 3);
 
-		add_filter('acf/load_field', array($this, 'allow_edits_in_default_language_only'), 100, 1);
+		add_filter('acf/load_field', array($this, 'mark_field'), 1, 1);
+
+		add_filter('acf/fields/post_object/query', array($this, 'acf_set_forced_lang'), 1, 3);
+		add_filter('acf/fields/relationship/query', array($this, 'acf_set_forced_lang'), 1, 3);
+
+		//add_filter('acf/fields/relationship/query', array($this, 'acf/fields/relationship/query'), 50, 3);
+
 	}
 
 
@@ -38,13 +45,55 @@ class acf_wpml {
 
 	}
 
+
 	/**
 	 * TO DO: Documentation
 	 *
 	 * @return void
 	 **/
-	function allow_edits_in_default_language_only($field){
+	function acf_set_forced_lang($args, $field, $post){
+
+		global $sitepress;
 		
+		if($lang = $field['result_lang'] and $lang != 'current' and $sitepress and $sitepress->get_current_language() != $lang){
+
+			/*
+			**************
+			IMPORTANT NOTE
+			**************
+			This assumes that there is at least
+			one post of any post type with the language
+			set to that which is requested.
+			*/
+
+			$this->switch_to_language($lang);
+			global $wpdb;
+
+			$query = "SELECT wp_posts.ID
+			FROM wp_posts
+			LEFT JOIN wp_icl_translations as t
+			ON wp_posts.ID = t.element_id
+			WHERE t.language_code = '$lang'
+			LIMIT 1";
+
+			if($result = $wpdb->get_results($query))
+					$_REQUEST[ 'post_id' ] = $result[0]->ID;
+
+		}
+
+		return $args;
+
+	}
+
+
+	/**
+	 * TO DO: Documentation
+	 *
+	 * @return void
+	 **/
+	function mark_field($field){
+		
+
 		global $sitepress;
 		if(!$sitepress)
 			return $field;
@@ -57,9 +106,13 @@ class acf_wpml {
 		}
 
 		if(is_admin() and !$this->is_acf() and $sitepress->get_current_language() != $sitepress->get_default_language()){
-			unset($field['instructions']);
-			$field['type'] 		= 'message';
-			$field['message'] 	= 'This field is unavailable for editing in this language. Please switch to the default language to edit.';
+
+			if(!$field['wrapper']['class'])
+				$field['wrapper']['class'] = '';
+			$field['wrapper']['class'] .= ' shared_field';
+
+			$field = apply_filters('acf_wpml/field_unavailable', $field);
+
 		}
 
 		return $field;
@@ -168,6 +221,31 @@ class acf_wpml {
 			'type'			=> 'true_false',
 			'name'			=> 'translateable'
 		));
+
+
+		$langfields = array('post_object', 'relationship', 'page_link');
+		if(in_array($field['type'], $langfields)){
+
+			$languages = $this->get_languages(false);
+
+			$choices = array(
+				'current' => 'Active language'
+				);
+
+			foreach($languages as $lang){
+				$choices[$lang['tag']] = $lang['native_name'];
+			}
+
+			acf_render_field_setting( $field, array(
+				'label'			=> 'Result language',
+				'instructions'	=> 'Force results from this language',
+				'type'			=> 'select',
+				'name'			=> 'result_lang',
+				'choices' 		=> $choices
+			));
+
+		}
+
 
 	}
 
