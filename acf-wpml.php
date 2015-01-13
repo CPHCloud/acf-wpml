@@ -158,7 +158,6 @@ class acf_wpml {
 		if($field['translateable'])
 			return $value;
 
-
 		if($post_id == 'options' or $post_id == 'options_'.$sitepress->get_current_language()){
 
 			$languages = $this->get_languages();
@@ -182,11 +181,38 @@ class acf_wpml {
 		}
 		else{
 			
-			$trid 			= $sitepress->get_element_trid($post->ID, 'post_' . $post->post_type);
-			$translations 	= $sitepress->get_element_translations($trid, 'post_' . $post->post_type);
-			unset($translations[$sitepress->get_current_language()]);
+			/*
+			We have already checked for translations and none
+			were found. Let's return the $value.
+			*/
+			if($this->has_checked and !$this->translations)
+				return $value;
 
+
+			/*
+			Check for translations
+			*/
+			if(!$translations = $this->translations){
+				
+				/* No translations were found. Let's check for any. */
+				$trid 			= $sitepress->get_element_trid($post->ID, 'post_' . $post->post_type);
+				$translations 	= $sitepress->get_element_translations($trid, 'post_' . $post->post_type);
+				unset($translations[$sitepress->get_current_language()]);
+				
+				/* Do this for caching */
+				$this->has_checked = true;
+				if($translations){
+					$this->translations = $translations;
+				}
+
+			}
+
+
+			/* Are there translations */
 			if($translations){
+
+
+				/* Yes there is! Loop through them and update their values */
 				$i = 0;
 				foreach($translations as $translation){
 		
