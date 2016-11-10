@@ -11,6 +11,7 @@ class acf_wpml {
 	
 	function __construct(){
 		$this->hooks();
+		$this->acf_lang_load_value_running = false;
 	}
 
 	/**
@@ -127,6 +128,9 @@ class acf_wpml {
 	 **/
 	function acf_lang_load_value($value, $post_id, $field){
 
+		if($this->acf_lang_load_value_running)
+			return $value;
+
 		global $sitepress;
 		
 		if(!$sitepress)
@@ -137,9 +141,11 @@ class acf_wpml {
 
 		$post = get_post($post_id);
 
+		$this->acf_lang_load_value_running = true;
 		if($trans_id = icl_object_id($post->ID, $post->post_type, false, $sitepress->get_default_language())){
 			$value = acf_get_value($trans_id, $field, true);
 		}
+		$this->acf_lang_load_value_running = false;
 
 		return $value;
 	}
